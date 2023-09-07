@@ -58,9 +58,7 @@ const LinkingMethod = require('./LinkingMethod');
 class Client extends EventEmitter {
     constructor(options = {}) {
         super();
-
         this.options = Util.mergeDefault(DefaultOptions, options);
-
         if (!this.options.linkingMethod) {
             this.options.linkingMethod = new LinkingMethod({
                 qr: {
@@ -284,10 +282,10 @@ class Client extends EventEmitter {
             };
 
             const handleLinkWithPhoneNumber = async () => {
-                const LINK_WITH_PHONE_BUTTON = '[data-testid="link-device-qrcode-alt-linking-hint"]';
-                const PHONE_NUMBER_INPUT = '[data-testid="link-device-phone-number-input"]';
-                const NEXT_BUTTON = '[data-testid="link-device-phone-number-entry-next-button"]';
-                const CODE_CONTAINER = '[data-testid="link-with-phone-number-code-cells"]';
+                const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+                const LINK_WITH_PHONE_BUTTON = 'span[role="button"]';
+                const PHONE_NUMBER_INPUT = 'input';
+                const CODE_CONTAINER = 'div[aria-details="link-device-phone-number-code-screen-instructions"]';
                 const GENERATE_NEW_CODE_BUTTON = '[data-testid="popup-controls-ok"]';
                 const LINK_WITH_PHONE_VIEW = '[data-testid="link-device-phone-number-code-view"]';
 
@@ -300,11 +298,12 @@ class Client extends EventEmitter {
                     this.emit(Events.CODE_RECEIVED, code);
                 });
                 const clickOnLinkWithPhoneButton = async () => {
-                    await page.waitForSelector(LINK_WITH_PHONE_BUTTON, { timeout: 0 });                    
+                    await page.waitForSelector(LINK_WITH_PHONE_BUTTON, { timeout: 0 });    
                     await page.click(LINK_WITH_PHONE_BUTTON);
                 };
 
                 const typePhoneNumber = async () => {
+                    // await delay(60000)
                     await page.waitForSelector(PHONE_NUMBER_INPUT);
                     const inputValue = await page.$eval(PHONE_NUMBER_INPUT, el => el.value);
                     await page.click(PHONE_NUMBER_INPUT);
@@ -316,10 +315,10 @@ class Client extends EventEmitter {
 
                 await clickOnLinkWithPhoneButton();
                 await typePhoneNumber();
-                await page.click(NEXT_BUTTON);
-                  
+                await page.keyboard.press('Enter')                  
                 await page.evaluate(async function (selectors) {
                     function waitForElementToExist(selector, timeout = 60000) {
+                        console.log(selector)
                         return new Promise((resolve, reject) => {
                             if (document.querySelector(selector)) {
                                 return resolve(document.querySelector(selector));
@@ -375,18 +374,18 @@ class Client extends EventEmitter {
                         childList: true,
                     });
                     
-                    const linkWithPhoneView = document.querySelector(selectors.LINK_WITH_PHONE_VIEW);
-                    const linkWithPhoneViewObserver = new MutationObserver(() => {
-                        const newCode = getCode();
-                        if (newCode !== code) {
-                            window.codeChanged(newCode);
-                            code = newCode;
-                        }
-                    });
-                    linkWithPhoneViewObserver.observe(linkWithPhoneView, {
-                        subtree: true,
-                        childList: true,
-                    });
+                    // const linkWithPhoneView = document.querySelector(selectors.LINK_WITH_PHONE_VIEW);
+                    // const linkWithPhoneViewObserver = new MutationObserver(() => {
+                    //     const newCode = getCode();
+                    //     if (newCode !== code) {
+                    //         window.codeChanged(newCode);
+                    //         code = newCode;
+                    //     }
+                    // });
+                    // linkWithPhoneViewObserver.observe(linkWithPhoneView, {
+                    //     subtree: true,
+                    //     childList: true,
+                    // });
 
                 }, {
                     CODE_CONTAINER,
@@ -396,7 +395,6 @@ class Client extends EventEmitter {
             };
 
             const { linkingMethod } = this.options;
-
             if (linkingMethod.isQR()) {
                 await handleLinkWithQRCode();
             } else {
@@ -405,8 +403,13 @@ class Client extends EventEmitter {
 
             // Wait for link success
             try {
-                await page.waitForSelector(INTRO_IMG_SELECTOR, { timeout: 0 });
+                console.log(["INTRO_IMG_SELECTOR START"])
+                await page.waitForXPath("//div[contains(., 'Loading your chats')]", { timeout: 0 });
+                console.log(["INTRO_IMG_SELECTOR END"])
+
             } catch(error) {
+                console.log(["INTRO_IMG_SELECTOR ERROR"])
+
                 if (
                     error.name === 'ProtocolError' && 
                     error.message && 
